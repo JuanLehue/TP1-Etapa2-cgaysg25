@@ -1,4 +1,4 @@
-let formas = [];
+/*let formas = [];
 
 function setup() {
   createCanvas(300, 400);
@@ -60,5 +60,5 @@ function dibujarFormas() {
     forma.display();
   }
 }
-
+*/
 
