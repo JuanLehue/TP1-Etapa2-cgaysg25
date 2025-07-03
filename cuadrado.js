@@ -1,20 +1,27 @@
-class Forma {
-  constructor(vertices, col, group) {
-    this.vertices = vertices;
-    this.col = col;
-    this.group = group;
-  }
+class Cuadrado{
 
-  move(dx, dy) {
-    this.vertices = this.vertices.map(([x, y]) => [x + dx, y + dy]);
-  }
+    constructor( x_ , y_ ){
 
-  display() {
-    fill(this.col);
-    beginShape();
-    for (let [x, y] of this.vertices) {
-      vertex(x, y);
+        this.x = x_;
+        this.y = y_;
+
+        this.t = 50;
+        push();
+        colorMode( HSB ,360,100,100,100);
+        this.elColor = color( random(200,280) , 100 , 100 , 30 );
+        pop();
+
     }
-    endShape(CLOSE);
-  }
+
+    crecer(){
+        this.t += 4;
+    }
+
+    dibujar(){
+        push();
+        fill(this.elColor);
+        rect( this.x , this.y , this.t , this.t );
+        pop();
+    }
+
 }
