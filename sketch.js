@@ -1,150 +1,240 @@
+let figuras = [];
+let figura;
+let lasFiguras = [];
+let cant = 15;
+let cantFiguras = 40;
+let dibujadas = 0;
+let paleta;
+let cuadrado;
+let losCuadrados = [];
+let cantidad = 0;
+let duracionSonido = 0;
 
 
+let mic;
+let audioContext;
 
-/* 
+let AMP_MIN = 0.001;
+let AMP_MAX = 0.1;
+let NOTE_MIN = 40;
+let NOTE_MAX = 74;
+
+let amortigua = 0.9;
+let amp;
+let gestorAmp, gestorPitch;
+let umbral = 0.1;
+
+let haySonido = false;
+let antesHabiaSonido = false;
+
+let numeroDeNota;
+let pitchActual = 0;
+
+let tiempoSinSonido = 0;
+let tiempoDeReinicio = 5000; //10 segundos
+let tiempoUltimoSonido = 0;
+
+let ultimoCambioColor = 0;
+let temporizador = 0;
+let intervaloCambioColor = 3000;
+
+const model_url = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/';
+
+
+function preload() {
+
+    paleta = new Paleta("data/paleta2.png");
+
+    for (let i = 0; i < cant; i++) {
+        let nombre = "data/Figura" + i + ".png";
+        figuras[i] = loadImage(nombre);
+    }
+}
+
 function setup() {
-  createCanvas(300, 400);
+    createCanvas(400, 600);
+    background(200);
+    imageMode(CENTER);
+    noStroke();
 
+    audioContext = getAudioContext();
+    mic = new p5.AudioIn();
+    //mic.start();
+    mic.start(startPitch);
+    userStartAudio();
+
+    gestorAmp = new GestorSenial(AMP_MIN, AMP_MAX);
+    gestorPitch = new GestorSenial(NOTE_MIN, NOTE_MAX);
+
+    startPitch();
 }
 
 function draw() {
-  background(255);
-  noStroke();
-  
-  //amarillo izquierda
-  fill(255,255,0);
-  beginShape();
-  vertex(0, 30);
-  vertex(100, -80);
-  vertex(100, 150);
-  vertex(40, 200);
-  endShape(CLOSE);
+    background(255);
+    let ampCruda = mic.getLevel();
+    gestorAmp.actualizar(ampCruda);
+    amp = gestorAmp.filtrada;
 
-  //verde derecha
-  fill(0, 255, 0);
-  beginShape();
-  vertex(150, 120);
-  vertex(300, 0);
-  vertex(400, 200);
-  vertex(170, 300);
-  endShape(CLOSE);
 
-  //negro medio
-  fill(40);
-  beginShape();
-  vertex(90, 220);
-  vertex(170, 220);
-  vertex(170, 400);
-  vertex(90, 500);
-  endShape(CLOSE);
+    haySonido = amp > umbral;
 
-    // Rojo inferior
-  fill(210, 70, 40);
-  beginShape();
-  vertex(0, 350);
-  vertex(160, 360);
-  vertex(150, 400);
-  vertex(0, 400);
-  endShape(CLOSE);
+    if (haySonido) {
+        duracionSonido += deltaTime; // se incrementa con el tiempo real
+    } else {
+        duracionSonido = 0; // se reinicia si no hay sonido
+    }
 
-    // Gris oscuro derecha abajo
-  fill(100);
-  beginShape();
-  vertex(230, 280);
-  vertex(300, 270);
-  vertex(300, 400);
-  vertex(230, 400);
-  endShape(CLOSE);
 
-   // Verde inferior derecha
-  fill(20, 130, 60);
-  beginShape();
-  vertex(180, 290);
-  vertex(230, 280);
-  vertex(230, 400);
-  vertex(160, 400);
-  endShape(CLOSE);
-  
-    // Amarillo centro derecha
-  fill(255, 233, 0);
-  beginShape();
-  vertex(165, 210);
-  vertex(210, 200);
-  vertex(220, 270);
-  vertex(175, 290);
-  endShape(CLOSE);
+    let empezoElSonido = !antesHabiaSonido && haySonido;
 
-  // Gris claro diagonal izquierda
-  fill(180);
-  beginShape();
-  vertex(0, 240);
-  vertex(80, 270);
-  vertex(100, 340);
-  vertex(30, 330);
-  endShape(CLOSE);
+    let terminoElSonido = !haySonido && antesHabiaSonido;
 
-  // Celeste bloque medio izquierdo
-  fill(30, 160, 230);
-  beginShape();
-  vertex(0, 240);
-  vertex(100, 190);
-  vertex(100, 290);
-  vertex(0, 300);
-  endShape(CLOSE);
+    let pitch = gestorPitch.filtrada;
 
-    // Verde grande arriba derecha
-  fill(20, 130, 60);
-  beginShape();
-  vertex(110, 35);
-  vertex(250, 0);
-  vertex(300, 90);
-  vertex(260, 150);
-  vertex(150, 180);
-  endShape(CLOSE);
+    if (haySonido) {
+        tiempoUltimoSonido = millis();
+    }
 
-  // Rojo horizontal medio
-  fill(230, 0, 0);
-  beginShape();
-  vertex(115, 170);
-  vertex(300, 195);
-  vertex(300, 215);
-  vertex(120, 190);
-  endShape(CLOSE);
+    tiempoSinSonido = millis() - tiempoUltimoSonido;
 
-  // Celeste medio arriba derecha
-  fill(30, 160, 230);
-  beginShape();
-  vertex(250, 90);
-  vertex(300, 90);
-  vertex(300, 135);
-  vertex(260, 130);
-  endShape(CLOSE);
+    if (tiempoSinSonido > tiempoDeReinicio) {
+        reiniciarObra();
+    }
 
- 
+    if (!haySonido) {
+        for (let i = 0; i < cantidad; i++) {
+            let figura = lasFiguras[i];
+            figura.x += map(noise(frameCount * 0.01 + i), 0, 1, -1, 1);
+            figura.y += map(noise(frameCount * 0.01 + 100 + i), 0, 1, -1, 1);
+        }
+    }
 
-  // Forma roja superior derecha
-  fill(230, 0, 0);
-  beginShape();
-  vertex(230, 0);
-  vertex(300, 0);
-  vertex(300, 75);
-  vertex(255, 60);
-  endShape(CLOSE);
 
-  // Forma naranja superior izquierda
-  fill(220, 80, 40);
-  beginShape();
-  vertex(20, 0);
-  vertex(120, 0);
-  vertex(110, 20);
-  vertex(80, 10);
-  endShape(CLOSE);
+    if (haySonido) {
+        if (cantidad < cantFiguras) {
+            figura = new Figura(random(width), random(height), random(10, 100), random(10, 100), figuras, int(random(cant)), paleta);
+            lasFiguras[cantidad] = figura;
+            cantidad++;
+        }
+    }
+    for (let i = 0; i < cantidad; i++) {
+        lasFiguras[i].dibujar(haySonido);
+    }
+    if (haySonido) {
+        for (let i = 0; i < cantidad; i++) {
+            lasFiguras[i].crecer();
+        }
+    }
 
-  // Forma negra superior izquierda
-  fill(30);
-  beginShape();
-  vertex(0, 0);
-  vertex(30, 0);
-  vertex(0,50);
-  endShape(CLOSE); 
-}*/
+
+
+    if (haySonido && (pitchActual < 40 || pitchActual > 70)) {
+        if (millis() - ultimoCambioColor > intervaloCambioColor) {
+            for (let i = 0; i < cantidad; i++) {
+            lasFiguras[i].cambiarColor(); 
+            lasFiguras[i].cambioDeColorHecho = false;
+            }
+        ultimoCambioColor = millis(); // reiniciamos el temporizador
+    }
+    }
+
+
+    if (haySonido) {
+        for (let i = 0; i < cantidad; i++) {
+            lasFiguras[i].rotar(pitchActual, duracionSonido); // ahora pasa pitch y duración
+        }
+    }
+
+
+
+}
+
+
+
+
+
+function dibujarFigura() {
+
+    push();
+    noStroke();
+    tint(paleta.darColor());
+
+    let cual = int(random(cant));
+    let x = random(0, width);
+    let y = random(0, height);
+
+    translate(x, y);
+    let angulo = radians(map(x, 0, width, 90, 540));
+    rotate(angulo);
+    scale(random(0.2, 0.8));
+
+
+    //image(figuras[cual], 0, 0);
+    pop();
+    dibujadas++;
+}
+
+function reiniciarObra() {
+    lasFiguras = [];
+    cantidad = 0;
+    tiempoUltimoSonido = millis(); // reseteamos el reloj
+    background(255); // limpiar canvas (opcional, ya se hace al inicio del draw)
+    antesHabiaSonido = false;
+
+}
+
+
+//--------------------------------------------------------------------
+//inicia el modelo de Machine Learning para deteccion de pitch (altura tonal)
+function startPitch() {
+    pitch = ml5.pitchDetection(model_url, audioContext, mic.stream, modelLoaded);
+}
+
+//--------------------------------------------------------------------
+function modelLoaded() {
+    //select('#status').html('Model Loaded');
+    getPitch();
+    //console.log( "entro aca !" );
+}
+
+//--------------------------------------------------------------------
+function getPitch() {
+    pitch.getPitch(function (err, frequency) {
+        //aca ingresa la frecuencia 'cruda'
+        if (frequency) {
+            //transforma la frevcuencia en nota musical
+            numeroDeNota = freqToMidi(frequency);
+            // console.log( numeroDeNota );
+            console.log("Nota: " + numeroDeNota + "  Frecuencia: " + frequency);
+
+            gestorPitch.actualizar(numeroDeNota);
+
+        }
+
+        getPitch();
+    })
+}
+
+
+function modelLoaded() {
+    getPitch();
+}
+
+function getPitch() {
+    pitch.getPitch(function (err, frequency) {
+        if (frequency) {
+            numeroDeNota = freqToMidi(frequency);
+            console.log("Nota: " + numeroDeNota + "  Frecuencia: " + frequency);
+            gestorPitch.actualizar(numeroDeNota);
+            pitchActual = numeroDeNota;
+        }
+        getPitch(); // loop recursivo
+    });
+}
+
+//------------------------------------------------------------
+// Función para convertir frecuencia en número de nota MIDI
+function freqToMidi(f) {
+    return Math.round(69 + 12 * Math.log2(f / 440));
+}
+
